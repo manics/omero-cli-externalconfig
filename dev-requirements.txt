@@ -1,0 +1,4 @@
+# OMERO.web is needed for the unit tests since omero.web properties have special handling
+omero-web
+pre-commit
+pytest
