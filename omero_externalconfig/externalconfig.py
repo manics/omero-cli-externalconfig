@@ -8,10 +8,13 @@ import json
 import logging
 import os
 from re import sub
-from omero.config import ConfigXml
-from omero.util import pydict_text_io
+from typing import Any, Dict, List, Union
+from omero.config import ConfigXml  # type: ignore
+from omero.util import pydict_text_io  # type: ignore
 
 log = logging.getLogger(__name__)
+
+DictOrList = Union[Dict[Any, Any], List[Any]]
 
 
 class ExternalConfigException(Exception):
@@ -22,13 +25,13 @@ class ExternalConfigException(Exception):
     pass
 
 
-def _get_omeroweb_default(key):
+def _get_omeroweb_default(key: str) -> DictOrList:
     """
     Based on
     https://github.com/ome/omero-py/blob/v5.8.0/src/omero/plugins/prefs.py#L368
     """
     try:
-        from omeroweb import settings
+        from omeroweb import settings  # type: ignore
 
         setting = settings.CUSTOM_SETTINGS_MAPPINGS.get(key)
         default = setting[2](setting[1]) if setting else []
@@ -43,7 +46,9 @@ def _get_omeroweb_default(key):
     return default
 
 
-def _add_or_append(config, key, values):
+def _add_or_append(
+    config: ConfigXml, key: str, values: DictOrList
+) -> DictOrList:
     """
     Add values (dict) or append values (list) to a property.
     Based on
@@ -67,10 +72,10 @@ def _add_or_append(config, key, values):
                 key, json_value, values
             )
         )
-    return json_value
+    return json_value  # type: ignore
 
 
-def update_from_environment(omerodir):
+def update_from_environment(omerodir: str) -> None:
     """
     Updates OMERO config.xml from CONFIG_* environment variables.
 
@@ -94,7 +99,7 @@ def update_from_environment(omerodir):
         cfg.close()
 
 
-def update_from_dict(omerodir, dj):
+def update_from_dict(omerodir: str, dj: Dict[str, Any]) -> None:
     """
     Updates OMERO config.xml from a dictionary.
 
@@ -115,7 +120,7 @@ def update_from_dict(omerodir, dj):
         cfg.close()
 
 
-def add_from_dict(omerodir, dj):
+def add_from_dict(omerodir: str, dj: Dict[str, DictOrList]) -> None:
     """
     Updates OMERO config.xml from a dictionary whose values are lists or
     dicts.
@@ -136,7 +141,7 @@ def add_from_dict(omerodir, dj):
         cfg.close()
 
 
-def update_from_multilevel_dictfile(omerodir, dictfile):
+def update_from_multilevel_dictfile(omerodir: str, dictfile: str) -> None:
     """
     Updates OMERO config.xml from a file containing keys containing
     dictionaries.
