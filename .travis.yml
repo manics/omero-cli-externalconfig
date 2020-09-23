@@ -31,4 +31,4 @@ jobs:
 
 cache:
   directories:
-  - $HOME/.cache/pip
+    - $HOME/.cache/pip
