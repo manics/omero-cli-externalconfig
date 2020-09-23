@@ -8,12 +8,13 @@ import json
 import logging
 import os
 from re import sub
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 from omero.config import ConfigXml  # type: ignore
 from omero.util import pydict_text_io  # type: ignore
 
 log = logging.getLogger(__name__)
 
+JSONDict = Dict[str, Any]
 DictOrList = Union[Dict[Any, Any], List[Any]]
 
 
@@ -25,7 +26,7 @@ class ExternalConfigException(Exception):
     pass
 
 
-def _get_omeroweb_default(key: str) -> DictOrList:
+def _get_omeroweb_default(key: str) -> Optional[DictOrList]:
     """
     Based on
     https://github.com/ome/omero-py/blob/v5.8.0/src/omero/plugins/prefs.py#L368
@@ -34,45 +35,73 @@ def _get_omeroweb_default(key: str) -> DictOrList:
         from omeroweb import settings  # type: ignore
 
         setting = settings.CUSTOM_SETTINGS_MAPPINGS.get(key)
-        default = setting[2](setting[1]) if setting else []
+        if not setting:
+            return None
+        default = setting[2](setting[1])
     except Exception as e:
         raise ExternalConfigException(
             "Cannot retrieve default value for property %s: %s" % (key, e)
         )
     if not isinstance(default, (dict, list)):
         raise ExternalConfigException(
-            "Property %s is not a dict or list" % key
+            "Property {} is not a dict or list: {}".format(key, default)
         )
     return default
 
 
-def _add_or_append(
-    config: ConfigXml, key: str, values: DictOrList
-) -> DictOrList:
+def _get_current_as_json(config: ConfigXml, key: str) -> Optional[DictOrList]:
     """
-    Add values (dict) or append values (list) to a property.
-    Based on
-    https://github.com/ome/omero-py/blob/v5.8.0/src/omero/plugins/prefs.py#L383
+    Get current key value converted from JSON to a list or dict,
+    taking into account OMERO.web's defaults
     """
     if key in config.keys():
-        json_value = json.loads(config[key])
-    elif key.startswith("omero.web."):
-        json_value = _get_omeroweb_default(key)
-    else:
+        current = json.loads(config[key])
+        if not isinstance(current, (dict, list)):
+            raise ExternalConfigException(
+                "Property {} is not a dict or list: {}".format(key, current)
+            )
+        return current
+    if key.startswith("omero.web."):
+        return _get_omeroweb_default(key)
+    return None
+
+
+def _add_to_dict(config: ConfigXml, key: str, values: JSONDict) -> JSONDict:
+    """
+    Add values to a dict
+    """
+    current = _get_current_as_json(config, key)
+    if current is None:
         # Key doesn't have a value so just return input instead of trying to
         # figure out the type
         return values
-    if isinstance(json_value, list) and isinstance(values, list):
-        json_value.extend(values)
-    elif isinstance(json_value, dict) and isinstance(values, dict):
-        json_value.update(values)
-    else:
-        raise ExternalConfigException(
-            "Invalid types: key:{} current:{} new:{}".format(
-                key, json_value, values
-            )
-        )
-    return json_value  # type: ignore
+    if isinstance(current, dict):
+        current.update(values)
+        return current
+    raise ExternalConfigException(
+        "Expected dict for key:{} current:{}".format(key, current)
+    )
+
+
+def _append_to_list(
+    config: ConfigXml, key: str, values: List[Any]
+) -> List[Any]:
+    """
+    Append values to a list.
+    Based on
+    https://github.com/ome/omero-py/blob/v5.8.0/src/omero/plugins/prefs.py#L383
+    """
+    current = _get_current_as_json(config, key)
+    if current is None:
+        # Key doesn't have a value so just return input instead of trying to
+        # figure out the type
+        return values
+    if isinstance(current, list):
+        current.extend(values)
+        return current
+    raise ExternalConfigException(
+        "Expected list for key:{} current:{}".format(key, current)
+    )
 
 
 def update_from_environment(omerodir: str) -> None:
@@ -86,17 +115,14 @@ def update_from_environment(omerodir: str) -> None:
 
     :param omerodir str: OMERODIR
     """
-    cfg = ConfigXml(os.path.join(omerodir, "etc", "grid", "config.xml"))
-    try:
-        for (k, v) in os.environ.items():
-            if k.startswith("CONFIG_"):
-                prop = k[7:]
-                prop = sub("([^_])_([^_])", r"\1.\2", prop)
-                prop = sub("__", "_", prop)
-                log.info("Setting: %s=%s", prop, v)
-                cfg[prop] = v
-    finally:
-        cfg.close()
+    cfg = {}
+    for (k, v) in os.environ.items():
+        if k.startswith("CONFIG_"):
+            prop = k[7:]
+            prop = sub("([^_])_([^_])", r"\1.\2", prop)
+            prop = sub("__", "_", prop)
+            cfg[prop] = v
+    update_from_dict(omerodir, cfg)
 
 
 def update_from_dict(omerodir: str, dj: Dict[str, Any]) -> None:
@@ -133,9 +159,14 @@ def add_from_dict(omerodir: str, dj: Dict[str, DictOrList]) -> None:
     """
     cfg = ConfigXml(os.path.join(omerodir, "etc", "grid", "config.xml"))
     try:
+        jv = []  # type: DictOrList
         for (k, vs) in dj.items():
-            jv = _add_or_append(cfg, k, vs)
-            log.info("Appending: %s=%s", k, jv)
+            if isinstance(vs, list):
+                jv = _append_to_list(cfg, k, vs)
+                log.info("Appending: %s=%s", k, jv)
+            elif isinstance(vs, dict):
+                jv = _add_to_dict(cfg, k, vs)
+                log.info("Adding: %s=%s", k, jv)
             cfg[k] = json.dumps(jv, sort_keys=True, ensure_ascii=False)
     finally:
         cfg.close()

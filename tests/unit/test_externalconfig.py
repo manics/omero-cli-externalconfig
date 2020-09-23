@@ -2,6 +2,7 @@ import os
 
 from omero.config import ConfigXml
 from omero_externalconfig import (
+    add_from_dict,
     update_from_environment,
     update_from_dict,
     update_from_multilevel_dictfile,
@@ -49,6 +50,46 @@ class TestExternalConfig(object):
             "c": '[{"b": true, "k": "v"}]',
         }
 
+    def test_add_from_dict_extend(self, monkeypatch, tmpdir):
+        (tmpdir / "etc" / "grid").ensure(dir=True)
+        omerodir = str(tmpdir)
+        monkeypatch.setenv("OMERODIR", str(omerodir))
+
+        update_from_dict(omerodir, {"initial.key": ["value1"]})
+
+        d = {"initial.key": ["value2", "value3"], "other.key": [{"a": 1}]}
+        add_from_dict(omerodir, d)
+
+        cfg = _get_config(omerodir)
+        assert cfg == {
+            "initial.key": '["value1", "value2", "value3"]',
+            "other.key": '[{"a": 1}]',
+        }
+
+    def test_add_from_dict_update(self, monkeypatch, tmpdir):
+        (tmpdir / "etc" / "grid").ensure(dir=True)
+        omerodir = str(tmpdir)
+        monkeypatch.setenv("OMERODIR", str(omerodir))
+
+        update_from_dict(
+            omerodir,
+            {
+                "initial.key": {"key1": "value1", "key2": "value2"},
+                "other.key": {"b": 2},
+            },
+        )
+
+        d = {"initial.key": {"key2": 123, "key3": {"a": 1}}}
+        add_from_dict(omerodir, d)
+
+        cfg = _get_config(omerodir)
+        assert cfg == {
+            "initial.key": (
+                '{"key1": "value1", "key2": 123, "key3": {"a": 1}}'
+            ),
+            "other.key": '{"b": 2}',
+        }
+
     def test_update_from_multilevel_dictfile(self, monkeypatch, tmpdir):
         (tmpdir / "etc" / "grid").ensure(dir=True)
         omerodir = str(tmpdir)
@@ -79,6 +120,14 @@ omero_web_apps_config_append:
   omero.web.server_list:
     # This should be appended to the default localhost
     - [idr.openmicroscopy.org, 4064, idr]
+  # This key doesn't have an omero.web default, check list works
+  omero.web.this.key.doesnt.exist.list:
+    - abc
+    - def
+  # This key doesn't have an omero.web default, check dict works
+  omero.web.this.key.doesnt.exist.dict:
+    abc: 1
+    def: 2
 
 omero_web_apps_config_set:
   omero.web.mapr.config:
@@ -135,4 +184,6 @@ ignored_key:
                 '[["localhost", 4064, "omero"], '
                 '["idr.openmicroscopy.org", 4064, "idr"]]'
             ),
+            "omero.web.this.key.doesnt.exist.list": '["abc", "def"]',
+            "omero.web.this.key.doesnt.exist.dict": '{"abc": 1, "def": 2}',
         }
