@@ -1,16 +1,15 @@
-import os
-
-from omero.config import ConfigXml
 from omero_externalconfig import (
     add_from_dict,
+    reset_configuration,
     update_from_environment,
     update_from_dict,
     update_from_multilevel_dictfile,
 )
+from omero_externalconfig.externalconfig import _get_config_xml
 
 
 def _get_config(omerodir):
-    configxml = ConfigXml(os.path.join(omerodir, "etc", "grid", "config.xml"))
+    configxml = _get_config_xml(omerodir)
     try:
         cfg = configxml.as_map()
         cfg.pop("omero.config.version")
@@ -20,6 +19,19 @@ def _get_config(omerodir):
 
 
 class TestExternalConfig(object):
+    def test_reset_configuration(self, monkeypatch, tmpdir):
+        (tmpdir / "etc" / "grid").ensure(dir=True)
+        omerodir = str(tmpdir)
+        monkeypatch.setenv("OMERODIR", str(omerodir))
+
+        configxml = _get_config_xml(omerodir)
+        configxml["test.key"] = "abc"
+        configxml.close()
+        assert _get_config(omerodir) == {"test.key": "abc"}
+
+        reset_configuration(omerodir)
+        assert _get_config(omerodir) == {}
+
     def test_update_from_environment(self, monkeypatch, tmpdir):
         (tmpdir / "etc" / "grid").ensure(dir=True)
         omerodir = str(tmpdir)

@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Union
 from omero.config import ConfigXml  # type: ignore
 from omero.util import pydict_text_io  # type: ignore
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("omero_externalconfig")
 
 JSONDict = Dict[str, Any]
 DictOrList = Union[Dict[Any, Any], List[Any]]
@@ -24,6 +24,10 @@ class ExternalConfigException(Exception):
     """
 
     pass
+
+
+def _get_config_xml(omerodir: str) -> ConfigXml:
+    return ConfigXml(os.path.join(omerodir, "etc", "grid", "config.xml"))
 
 
 def _get_omeroweb_default(key: str) -> Optional[DictOrList]:
@@ -104,6 +108,19 @@ def _append_to_list(
     )
 
 
+def reset_configuration(omerodir: str) -> None:
+    """
+    Delete current OMERO config.xml properties.
+
+    :param omerodir str: OMERODIR
+    """
+    cfg = _get_config_xml(omerodir)
+    try:
+        cfg.remove()
+    finally:
+        cfg.close()
+
+
 def update_from_environment(omerodir: str) -> None:
     """
     Updates OMERO config.xml from CONFIG_* environment variables.
@@ -135,7 +152,7 @@ def update_from_dict(omerodir: str, dj: Dict[str, Any]) -> None:
            If dictionary values are strings they will be used directly.
            All other types will be converted to a JSON string.
     """
-    cfg = ConfigXml(os.path.join(omerodir, "etc", "grid", "config.xml"))
+    cfg = _get_config_xml(omerodir)
     try:
         for (k, v) in dj.items():
             if not isinstance(v, str):
@@ -157,7 +174,7 @@ def add_from_dict(omerodir: str, dj: Dict[str, DictOrList]) -> None:
            Dictionary values must be lists or dicts.
            Each item in the list/dict will be added to the property.
     """
-    cfg = ConfigXml(os.path.join(omerodir, "etc", "grid", "config.xml"))
+    cfg = _get_config_xml(omerodir)
     try:
         jv = []  # type: DictOrList
         for (k, vs) in dj.items():
