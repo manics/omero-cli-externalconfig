@@ -96,9 +96,7 @@ class TestExternalConfig(object):
 
         cfg = _get_config(omerodir)
         assert cfg == {
-            "initial.key": (
-                '{"key1": "value1", "key2": 123, "key3": {"a": 1}}'
-            ),
+            "initial.key": ('{"key1": "value1", "key2": 123, "key3": {"a": 1}}'),
             "other.key": '{"b": 2}',
         }
 

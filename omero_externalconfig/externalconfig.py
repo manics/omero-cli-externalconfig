@@ -87,9 +87,7 @@ def _add_to_dict(config: ConfigXml, key: str, values: JSONDict) -> JSONDict:
     )
 
 
-def _append_to_list(
-    config: ConfigXml, key: str, values: List[Any]
-) -> List[Any]:
+def _append_to_list(config: ConfigXml, key: str, values: List[Any]) -> List[Any]:
     """
     Append values to a list.
     Based on

@@ -48,9 +48,7 @@ class ExternalConfigControl(BaseControl):
             help="Expand file arguments using shell globbing",
         )
 
-        parser.add_argument(
-            "file", nargs="*", help="Load configuration from this file"
-        )
+        parser.add_argument("file", nargs="*", help="Load configuration from this file")
 
         parser.add_argument(
             "--fromenv",
