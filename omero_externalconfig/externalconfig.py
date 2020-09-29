@@ -8,6 +8,7 @@ import json
 import logging
 import os
 from re import sub
+from tempfile import TemporaryDirectory
 from typing import Any, Dict, List, Optional, Union
 from omero.config import ConfigXml  # type: ignore
 from omero.util import pydict_text_io  # type: ignore
@@ -45,7 +46,7 @@ def _get_omeroweb_default(key: str) -> Optional[DictOrList]:
     except Exception as e:
         raise ExternalConfigException(
             "Cannot retrieve default value for property %s: %s" % (key, e)
-        )
+        ) from e
     if not isinstance(default, (dict, list)):
         raise ExternalConfigException(
             "Property {} is not a dict or list: {}".format(key, default)
@@ -104,6 +105,24 @@ def _append_to_list(config: ConfigXml, key: str, values: List[Any]) -> List[Any]
     raise ExternalConfigException(
         "Expected list for key:{} current:{}".format(key, current)
     )
+
+
+def _parse_jinja2(j2file: str, tmpdir: str) -> str:
+    try:
+        import jinja2
+    except ImportError as e:
+        raise ExternalConfigException(
+            "j2 file processing requires the jinja2 module"
+        ) from e
+    if not j2file.endswith(".j2") or len(j2file) < 4:
+        raise ExternalConfigException("Invalid j2 file name")
+    out = j2file[:-3]
+    outpath = os.path.join(tmpdir, out)
+    with open(j2file) as f:
+        template = jinja2.Template(f.read())
+        with open(outpath, "w") as o:
+            o.write(template.render())
+    return outpath
 
 
 def reset_configuration(omerodir: str) -> None:
@@ -193,8 +212,10 @@ def update_from_multilevel_dictfile(omerodir: str, dictfile: str) -> None:
     dictionaries.
 
     This is intended to support YAML files containing Ansible style
-    configuration variables to be parsed, but note variable interpolation is
-    not performed.
+    configuration variables to be parsed.
+    If the filename ends in .j2 the file will be pre-processed with Jinja2.
+    No variables are passed into the template so this is mostly intended for
+    expanding filters such as `|default(...)`.
 
     Each top-level key must contain a dictionary of key-value OMERO
     properties.
@@ -208,9 +229,20 @@ def update_from_multilevel_dictfile(omerodir: str, dictfile: str) -> None:
 
     :param omerodir str: OMERODIR
     :param dictfile str: Path to a file that can be parsed as a multi-level
-           dictionary.
+           dictionary, or a Jinaj2 file that will be rendered to the
+           aforementioned.
     """
-    d = pydict_text_io.load(dictfile)
+    try:
+        if dictfile.endswith(".j2"):
+            with TemporaryDirectory() as tmpdir:
+                tmpdictfile = _parse_jinja2(dictfile, tmpdir)
+                d = pydict_text_io.load(tmpdictfile)
+        else:
+            d = pydict_text_io.load(dictfile)
+    except Exception as e:
+        raise ExternalConfigException(
+            "Failed to parse {}: {}".format(dictfile, e)
+        ) from e
     for topk, topv in sorted(d.items()):
         if topk.endswith("_append"):
             add_from_dict(omerodir, topv)

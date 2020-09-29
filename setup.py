@@ -19,6 +19,9 @@ setuptools.setup(
     packages=["omero_externalconfig", "omero.plugins"],
     setup_requires=["setuptools_scm"],
     install_requires=["omero-py>=5.6.0"],
+    extras_require={
+        "jinja": ["jinja2"],
+    },
     use_scm_version={"write_to": "omero_externalconfig/_version.py"},
     classifiers=[
         "Environment :: Console",

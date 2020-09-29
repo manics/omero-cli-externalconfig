@@ -197,3 +197,25 @@ ignored_key:
             "omero.web.this.key.doesnt.exist.list": '["abc", "def"]',
             "omero.web.this.key.doesnt.exist.dict": '{"abc": 1, "def": 2}',
         }
+
+    def test_update_from_multilevel_jinja2file(self, monkeypatch, tmpdir):
+        (tmpdir / "etc" / "grid").ensure(dir=True)
+        omerodir = str(tmpdir)
+        monkeypatch.setenv("OMERODIR", str(omerodir))
+
+        content = """
+omero_server_config_set:
+  omero.db.host: {{ external_database_ip | default('localhost') }}
+  omero.db.user: {{ external_database_user | default('dbuser') }}
+  omero.db.pass: {{ external_database_pass | default('dbpassword') }}
+"""
+        (tmpdir / "input.yml.j2").write(content)
+
+        update_from_multilevel_dictfile(omerodir, str(tmpdir / "input.yml.j2"))
+
+        cfg = _get_config(omerodir)
+        assert cfg == {
+            "omero.db.host": "localhost",
+            "omero.db.user": "dbuser",
+            "omero.db.pass": "dbpassword",
+        }

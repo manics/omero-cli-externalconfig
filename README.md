@@ -30,7 +30,7 @@ Examples:
 
 ## Configuration files
 
-Configuration files should be in either YAML or JSON format.
+Configuration files must be in either YAML or JSON format.
 They should contain one or more top-level keys with names ending in `*_set` for properties to be set and `*_append` for properties to be updated by appending/adding the new values.
 The values of each item in an `*_append` dictionary must be a list or dict depending on the expected type.
 
@@ -52,6 +52,9 @@ web_append:
 ```
 
 Top-level keys are processing in alphanumerical order, with latter keys overwriting earlier properties.
+
+If the `jinja2` Python module is installed the configuration files can also be a Jinja2 template that renders to a YAML.
+The filename must end in `.j2`.
 
 ## Developer notes
 
