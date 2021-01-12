@@ -51,7 +51,9 @@ web_append:
     - [other.example.org, 4064, other]
 ```
 
-Top-level keys are processing in alphanumerical order, with latter keys overwriting earlier properties.
+Top-level keys are processed in alphanumerical order, with latter keys overwriting earlier properties.
+Other than for ordering the name of the key has no meaning.
+You may wish to use it to separate your configuration into logical sections for ease of maintenance but it will be ignored by this plugin.
 
 If the `jinja2` Python module is installed the configuration files can also be a Jinja2 template that renders to a YAML.
 The filename must end in `.j2`.
