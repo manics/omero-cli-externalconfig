@@ -1,6 +1,6 @@
 # OMERO server external configuration plugin
 
-[![Build](https://github.com/manics/omero-cli-externalconfig/workflows/Build/badge.svg)](https://github.com/manics/omero-cli-externalconfig/actions?query=branch%3Amain)
+[![Build](https://github.com/ome/omero-cli-externalconfig/workflows/Tox/badge.svg)](https://github.com/ome/omero-cli-externalconfig/actions?query=branch%3Amain)
 
 Configure OMERO using environment variables, YAML, and JSON files.
 
